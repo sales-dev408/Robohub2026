@@ -1,5 +1,5 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -23,10 +23,15 @@ function LoginRoute() {
   return <AuthPage />;
 }
 
+// When running inside Electron, the page is loaded from file://.
+// HashRouter is required so react-router works without a web server.
+const isElectron = typeof window !== "undefined" && window.electronAPI?.isElectron;
+const AppRouter = isElectron ? HashRouter : BrowserRouter;
+
 function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-      <BrowserRouter>
+      <AppRouter>
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginRoute />} />
@@ -52,7 +57,7 @@ function App() {
           <Toaster position="top-right" richColors />
           <Analytics />
         </AuthProvider>
-      </BrowserRouter>
+      </AppRouter>
     </ThemeProvider>
   );
 }

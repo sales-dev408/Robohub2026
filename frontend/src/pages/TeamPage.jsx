@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
+import { PermissionsManager } from "@/components/PermissionsManager";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -17,6 +18,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+
+const isElectron = typeof window !== "undefined" && window.electronAPI?.isElectron;
 
 const emptyForm = { name: "", email: "", password: "", role: "member" };
 
@@ -248,6 +251,7 @@ export default function TeamPage() {
                       <SelectItem value="mentor">Mentor</SelectItem>
                     </SelectContent>
                   </Select>
+                  {isElectron && <PermissionsManager user={u} onSaved={load} />}
                   <button onClick={() => setToDelete(u)} className="text-muted-foreground hover:text-destructive shrink-0"
                     data-testid={`delete-user-${u.id}`} aria-label="Remove member">
                     <Trash2 className="h-5 w-5" />

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robotics Team Hub - Offline Desktop</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 720px;
+      margin: 3rem auto;
+      padding: 1rem;
+      line-height: 1.5;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    h1 { color: #1d4ed8; }
+    .card {
+      background: white;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      margin-bottom: 1rem;
+    }
+    button {
+      background: #1d4ed8;
+      color: white;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    button:hover { background: #1e40af; }
+    pre {
+      background: #f1f5f9;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+    }
+    #status { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Robotics Team Hub</h1>
+    <p>This is the fallback sample UI. In a real build it is replaced by the React frontend in <code>frontend/build</code>.</p>
+    <p>Backend API base: <code id="apiUrl">http://localhost:54114/api</code></p>
+    <p>Status: <span id="status">Checking...</span></p>
+    <button id="pingBtn">Ping backend</button>
+    <button id="loginBtn">Log in as owner</button>
+    <button id="usersBtn">List users (owner)</button>
+  </div>
+  <div class="card">
+    <h2>Response</h2>
+    <pre id="output">Click a button above.</pre>
+  </div>
+
+  <script>
+    const API = 'http://localhost:54114/api';
+    const status = document.getElementById('status');
+    const output = document.getElementById('output');
+
+    async function ping() {
+      try {
+        const r = await fetch(`${API}/`);
+        const body = await r.json();
+        status.textContent = 'Connected';
+        output.textContent = JSON.stringify(body, null, 2);
+      } catch (e) {
+        status.textContent = 'Not connected';
+        output.textContent = e.message;
+      }
+    }
+
+    async function login() {
+      try {
+        const r = await fetch(`${API}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'owner@robohub.local', password: 'Robotics2026!' }),
+        });
+        const body = await r.json();
+        if (r.ok) {
+          localStorage.setItem('rh_token', body.token);
+          status.textContent = 'Logged in';
+        }
+        output.textContent = JSON.stringify(body, null, 2);
+      } catch (e) {
+        output.textContent = e.message;
+      }
+    }
+
+    async function listUsers() {
+      const token = localStorage.getItem('rh_token');
+      try {
+        const r = await fetch(`${API}/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await r.json();
+        output.textContent = JSON.stringify(body, null, 2);
+      } catch (e) {
+        output.textContent = e.message;
+      }
+    }
+
+    document.getElementById('pingBtn').addEventListener('click', ping);
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.getElementById('usersBtn').addEventListener('click', listUsers);
+
+    ping();
+  </script>
+</body>
+</html>

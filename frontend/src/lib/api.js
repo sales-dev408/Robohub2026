@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+// The desktop build does not set REACT_APP_BACKEND_URL; it falls back to
+// the local Python backend that Electron starts automatically.
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:54114";
+const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API });
 
