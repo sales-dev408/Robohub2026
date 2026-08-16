@@ -27,8 +27,13 @@ next-env.d.ts
 
 # Production builds
 /build
+frontend/build
 dist/
 dist
+desktop/backend/data/
+desktop/backend/data_*/
+desktop/backend/*.log
+desktop/backend/__pycache__/
 
 # Environment files (comprehensive coverage)
 
