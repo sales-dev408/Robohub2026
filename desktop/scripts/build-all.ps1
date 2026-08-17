@@ -2,7 +2,7 @@
 # Run from the repository root in PowerShell:
 #   .\desktop\scripts\build-all.ps1
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $RepoRoot = Resolve-Path "$PSScriptRoot\..\.."
 
 Set-Location $RepoRoot
@@ -11,8 +11,10 @@ Set-Location $RepoRoot
 Set-Location "$RepoRoot\frontend"
 if (!(Test-Path node_modules)) {
     yarn install
+    if ($LASTEXITCODE -ne 0) { throw "yarn install failed" }
 }
 yarn build
+if ($LASTEXITCODE -ne 0) { throw "yarn build failed" }
 
 # 2. Build the Python backend as a single .exe.
 Set-Location $RepoRoot
