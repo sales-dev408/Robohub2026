@@ -34,6 +34,8 @@ desktop/backend/data/
 desktop/backend/data_*/
 desktop/backend/*.log
 desktop/backend/__pycache__/
+desktop/backend/build/
+desktop/backend/backend.spec
 
 # Environment files (comprehensive coverage)
 
