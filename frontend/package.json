@@ -52,7 +52,7 @@
     "react-dom": "19.0.0",
     "react-hook-form": "7.56.2",
     "react-resizable-panels": "3.0.1",
-    "react-router-dom": "7.18.1",
+    "react-router-dom": "7.18.2",
     "react-scripts": "5.0.1",
     "recharts": "3.6.0",
     "sonner": "2.0.3",
@@ -99,9 +99,12 @@
   "resolutions": {
     "@eslint/plugin-kit": "0.7.2",
     "@tootallnate/once": "3.0.1",
+    "brace-expansion": "1.1.18",
     "nth-check": "2.1.1",
     "postcss": "8.5.23",
+    "react-router": "7.18.2",
     "serialize-javascript": "6.0.2",
+    "svgo": "2.8.3",
     "underscore": "1.13.8"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
