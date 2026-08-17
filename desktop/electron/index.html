@@ -228,7 +228,7 @@
       try {
         const data = await api('/dashboard');
         const stats = $('stats');
-        [['Files', data.file_count || 0], ['Messages', data.message_count || 0], ['Members', data.member_count || 0], ['Events', (data.events ? data.events.length : 0)]].forEach(([label, n]) => {
+        [['Files', data.file_count || 0], ['Messages', data.message_count || 0], ['Members', data.member_count || 0], ['Events', data.event_count || 0]].forEach(([label, n]) => {
           const d = document.createElement('div'); d.className = 'card'; d.innerHTML = `<div class="stat">${n}</div><div>${label}</div>`; stats.appendChild(d);
         });
         const ev = data.next_event ? `<strong>${escapeHtml(data.next_event.title)}</strong><br>${escapeHtml(data.next_event.date)}<br>${escapeHtml(data.next_event.location || '')}` : 'No events yet.';

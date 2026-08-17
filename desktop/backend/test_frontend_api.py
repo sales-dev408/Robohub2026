@@ -46,8 +46,8 @@ if ok(r):
     perms = {k: True for k in ['can_chat','can_upload_files','can_view_members_only','can_edit_calendar','can_manage_todos','can_delete_any_message','can_delete_any_file','can_manage_members']}
     r = requests.put(f'{BASE}/users/{user["id"]}/permissions', headers=headers, json={'permissions': perms})
     print('update permissions', r.status_code, r.text[:120])
-    # fetch user
-    r = requests.get(f'{BASE}/users/{user["id"]}', headers=headers)
+    # fetch user permissions
+    r = requests.get(f'{BASE}/users/{user["id"]}/permissions', headers=headers)
     print('fetch user perms', r.status_code, r.json().get('permissions'))
 
 print('all API checks done')
