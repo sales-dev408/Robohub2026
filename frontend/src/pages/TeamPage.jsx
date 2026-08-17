@@ -251,7 +251,7 @@ export default function TeamPage() {
                       <SelectItem value="mentor">Mentor</SelectItem>
                     </SelectContent>
                   </Select>
-                  {isElectron && <PermissionsManager user={u} onSaved={load} />}
+                  {user?.role === "owner" && <PermissionsManager user={u} onSaved={load} />}
                   <button onClick={() => setToDelete(u)} className="text-muted-foreground hover:text-destructive shrink-0"
                     data-testid={`delete-user-${u.id}`} aria-label="Remove member">
                     <Trash2 className="h-5 w-5" />

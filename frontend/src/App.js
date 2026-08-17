@@ -23,10 +23,11 @@ function LoginRoute() {
   return <AuthPage />;
 }
 
-// When running inside Electron, the page is loaded from file://.
-// HashRouter is required so react-router works without a web server.
+// When running from file:// or Electron, HashRouter is required so
+// react-router works without a web server.
+const isFile = typeof window !== "undefined" && window.location.protocol === "file:";
 const isElectron = typeof window !== "undefined" && window.electronAPI?.isElectron;
-const AppRouter = isElectron ? HashRouter : BrowserRouter;
+const AppRouter = isElectron || isFile ? HashRouter : BrowserRouter;
 
 function App() {
   return (
@@ -55,7 +56,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <Toaster position="top-right" richColors />
-          <Analytics />
+          {!isFile && <Analytics />}
         </AuthProvider>
       </AppRouter>
     </ThemeProvider>
