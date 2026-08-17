@@ -3,113 +3,554 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Robotics Team Hub - Offline Desktop</title>
+  <title>Robotics Team Hub</title>
   <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      max-width: 720px;
-      margin: 3rem auto;
-      padding: 1rem;
-      line-height: 1.5;
-      background: #f8fafc;
-      color: #0f172a;
-    }
-    h1 { color: #1d4ed8; }
-    .card {
-      background: white;
-      border-radius: 1rem;
-      padding: 1.5rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      margin-bottom: 1rem;
-    }
-    button {
-      background: #1d4ed8;
-      color: white;
-      border: none;
-      padding: 0.6rem 1rem;
-      border-radius: 0.5rem;
-      cursor: pointer;
-      font-weight: 600;
-      margin-right: 0.5rem;
-    }
-    button:hover { background: #1e40af; }
-    pre {
-      background: #f1f5f9;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      overflow-x: auto;
-    }
-    #status { font-weight: 600; }
+    :root { --primary: #1d4ed8; --primary-dark: #1e40af; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b; --border: #e2e8f0; --danger: #dc2626; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+    header { background: var(--primary); color: #fff; padding: .6rem 1rem; display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 1.15rem; flex: 1 1 auto; }
+    header label { font-size: .8rem; opacity: .9; }
+    header input { border: none; border-radius: .35rem; padding: .4rem .6rem; min-width: 220px; font: inherit; }
+    header button { background: var(--primary-dark); color: #fff; border: none; border-radius: .35rem; padding: .4rem .7rem; cursor: pointer; font-weight: 600; }
+    #userInfo { margin-left: auto; display: flex; align-items: center; gap: .6rem; font-size: .9rem; }
+    nav { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 1rem; display: flex; gap: .2rem; overflow: auto; }
+    nav button { background: transparent; border: none; color: var(--muted); padding: .75rem .9rem; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; }
+    nav button.active { color: var(--primary); border-color: var(--primary); }
+    main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
+    .card { background: var(--card); border-radius: .75rem; padding: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 1rem; }
+    h2, h3 { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+    .stat { font-size: 2rem; font-weight: 700; color: var(--primary); }
+    input, textarea, select { width: 100%; padding: .55rem; border: 1px solid var(--border); border-radius: .4rem; margin: .25rem 0 .75rem; font: inherit; }
+    input[type="checkbox"], input[type="radio"] { width: auto; margin: 0 .4rem 0 0; }
+    button { background: var(--primary); color: #fff; border: none; padding: .55rem .9rem; border-radius: .4rem; cursor: pointer; font-weight: 600; }
+    button.secondary { background: #e2e8f0; color: var(--text); }
+    button.danger { background: var(--danger); }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .sp { flex: 1; }
+    .message { padding: .6rem 0; border-bottom: 1px solid var(--border); }
+    .message:last-child { border: none; }
+    .message .meta { font-size: .78rem; color: var(--muted); margin-bottom: .2rem; }
+    .thread, .file-item, .event, .todo, .user-row { display: flex; justify-content: space-between; align-items: center; padding: .6rem; border: 1px solid var(--border); border-radius: .5rem; margin-bottom: .5rem; gap: .5rem; }
+    .thread:hover, .file-item:hover, .event:hover, .todo:hover, .user-row:hover { background: #f1f5f9; }
+    .thread { cursor: pointer; justify-content: flex-start; background: transparent; color: var(--text); font-weight: 500; }
+    .thread.active { background: #e0f2fe !important; }
+    .list { max-height: 60vh; overflow: auto; }
+    .flex { display: flex; gap: 1rem; }
+    .sidebar { width: 260px; min-width: 200px; flex-shrink: 0; }
+    .content { flex: 1; min-width: 0; }
+    pre { background: #f1f5f9; padding: .8rem; border-radius: .4rem; overflow: auto; font-size: .85rem; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal > .card { width: min(480px, 90%); max-height: 90vh; overflow: auto; }
+    .hidden { display: none !important; }
+    .permission-box { display: flex; justify-content: space-between; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--border); }
+    .toast { position: fixed; bottom: 1rem; right: 1rem; background: var(--text); color: #fff; padding: .75rem 1rem; border-radius: .5rem; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 200; }
+    .toast.show { opacity: 1; }
+    .tag { display: inline-block; background: #e2e8f0; color: var(--text); font-size: .75rem; padding: .15rem .45rem; border-radius: .3rem; font-weight: 600; text-transform: uppercase; }
+    .tag.owner { background: var(--primary); color: #fff; }
+    .tag.mentor { background: #f59e0b; color: #fff; }
+    img.preview { max-width: 200px; max-height: 120px; border-radius: .4rem; object-fit: cover; margin-top: .4rem; display: block; }
+    .small { font-size: .85rem; color: var(--muted); }
+    @media (max-width: 760px) { .flex { flex-direction: column; } .sidebar { width: auto; } }
   </style>
 </head>
 <body>
-  <div class="card">
+  <header>
     <h1>Robotics Team Hub</h1>
-    <p>This is the fallback sample UI. In a real build it is replaced by the React frontend in <code>frontend/build</code>.</p>
-    <p>Backend API base: <code id="apiUrl">http://localhost:54114/api</code></p>
-    <p>Status: <span id="status">Checking...</span></p>
-    <button id="pingBtn">Ping backend</button>
-    <button id="loginBtn">Log in as owner</button>
-    <button id="usersBtn">List users (owner)</button>
+    <label>Backend URL</label>
+    <input id="apiBase" value="http://127.0.0.1:54114/api" title="For Electron, leave as 127.0.0.1. For web/Render, paste the backend URL" />
+    <button onclick="saveApiBase()">Save</button>
+    <div id="userInfo"><button onclick="showAuth()">Log in</button></div>
+  </header>
+  <nav id="nav"></nav>
+  <main id="main"></main>
+  <div id="toast" class="toast"></div>
+  <div id="authModal" class="modal hidden">
+    <div class="card">
+      <h2 id="authTitle">Log in</h2>
+      <form onsubmit="event.preventDefault(); submitAuth();">
+        <label>Email</label><input id="authEmail" type="email" required />
+        <label>Password</label><input id="authPassword" type="password" required />
+        <div id="authNameWrap" class="hidden"><label>Name</label><input id="authName" /></div>
+        <div class="row"><button type="submit">Submit</button><button type="button" class="secondary" onclick="toggleAuthMode()">Switch to <span id="authSwitch">Register</span></button></div>
+        <p id="authMessage" class="small"></p>
+      </form>
+    </div>
   </div>
-  <div class="card">
-    <h2>Response</h2>
-    <pre id="output">Click a button above.</pre>
-  </div>
-
   <script>
-    const API = 'http://localhost:54114/api';
-    const status = document.getElementById('status');
-    const output = document.getElementById('output');
+    const $ = (id) => document.getElementById(id);
+    const PERMISSION_KEYS = ['can_chat','can_upload_files','can_view_members_only','can_edit_calendar','can_manage_todos','can_delete_any_message','can_delete_any_file','can_manage_members'];
+    const PERMISSION_LABELS = {'can_chat':'Send chat messages','can_upload_files':'Upload files','can_view_members_only':'View members-only channel','can_edit_calendar':'Edit calendar','can_manage_todos':'Manage all todos','can_delete_any_message':'Delete any message','can_delete_any_file':'Delete any file','can_manage_members':'Manage members'};
+    let state = { user: null, token: null, base: '', tab: 'dashboard', activeChannel: null, activeDm: null, poll: null, channels: [], threads: [] };
 
-    async function ping() {
-      try {
-        const r = await fetch(`${API}/`);
-        const body = await r.json();
-        status.textContent = 'Connected';
-        output.textContent = JSON.stringify(body, null, 2);
-      } catch (e) {
-        status.textContent = 'Not connected';
-        output.textContent = e.message;
-      }
+    function storageGet(key) { try { return localStorage.getItem(key); } catch (e) { return (window.__s = window.__s || {})[key] || null; } }
+    function storageSet(key, value) { try { localStorage.setItem(key, value); } catch (e) { (window.__s = window.__s || {})[key] = value; } }
+
+    function normalizeBase(b) { b = (b || '').trim(); while (b.endsWith('/')) b = b.slice(0, -1); return b || 'http://127.0.0.1:54114/api'; }
+
+    function defaultBase() {
+      if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.backendPort) return 'http://127.0.0.1:' + window.electronAPI.backendPort + '/api';
+      return 'http://127.0.0.1:54114/api';
     }
 
-    async function login() {
+    function init() {
+      const params = new URLSearchParams(location.search);
+      let base = params.get('api') || storageGet('rh_api_base') || defaultBase();
+      $('apiBase').value = base;
+      state.base = base;
+      state.token = storageGet('rh_token');
+      if (state.token) { loadUser().then(render); } else { render(); }
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideAuth(); });
+    }
+
+    async function api(path, opts) {
+      opts = opts || {};
+      const url = normalizeBase(state.base) + (path.startsWith('/') ? path : '/' + path);
+      const headers = opts.headers || {};
+      if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+      if (opts.body && typeof opts.body === 'string' && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      const res = await fetch(url, { method: opts.method || 'GET', headers: headers, body: opts.body });
+      if (res.status === 401) {
+        state.token = null; state.user = null; storageSet('rh_token', ''); storageSet('rh_user', '');
+        logout();
+        throw new Error('Not authenticated. Please log in.');
+      }
+      if (!res.ok) {
+        let msg = res.status + ' error';
+        try { const data = await res.json(); msg = data.detail || data.message || JSON.stringify(data); } catch (e) { msg = res.statusText || msg; }
+        throw new Error(msg);
+      }
+      if (res.status === 204) return {};
+      return res.json();
+    }
+
+    function showToast(msg, type) {
+      const t = $('toast'); t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function showAuth() { authMode = 'login'; updateAuthMode(); $('authModal').classList.remove('hidden'); }
+    function hideAuth() { $('authModal').classList.add('hidden'); $('authMessage').textContent = ''; }
+    let authMode = 'login';
+    function updateAuthMode() {
+      $('authTitle').textContent = authMode === 'login' ? 'Log in' : 'Register';
+      $('authSwitch').textContent = authMode === 'login' ? 'Register' : 'Log in';
+      $('authNameWrap').classList.toggle('hidden', authMode === 'login');
+      $('authMessage').textContent = '';
+    }
+    function toggleAuthMode() { authMode = authMode === 'login' ? 'register' : 'login'; updateAuthMode(); }
+
+    async function submitAuth() {
+      const email = $('authEmail').value.trim();
+      const password = $('authPassword').value;
       try {
-        const r = await fetch(`${API}/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: 'owner@robohub.local', password: 'Robotics2026!' }),
-        });
-        const body = await r.json();
-        if (r.ok) {
-          localStorage.setItem('rh_token', body.token);
-          status.textContent = 'Logged in';
+        if (authMode === 'login') {
+          const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+          state.token = data.token; storageSet('rh_token', data.token);
+          state.user = data.user; storageSet('rh_user', JSON.stringify(data.user));
+          hideAuth(); showToast('Welcome, ' + state.user.name); render();
+        } else {
+          const name = $('authName').value.trim();
+          await api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+          $('authMessage').textContent = 'Registration sent. Wait for owner approval before logging in.';
         }
-        output.textContent = JSON.stringify(body, null, 2);
-      } catch (e) {
-        output.textContent = e.message;
+      } catch (e) { $('authMessage').textContent = e.message; }
+    }
+
+    function logout(silent) {
+      clearInterval(state.poll); state.poll = null;
+      state.token = null; state.user = null; state.activeChannel = null; state.activeDm = null;
+      state.tab = 'dashboard';
+      storageSet('rh_token', ''); storageSet('rh_user', '');
+      if (!silent) showToast('Logged out');
+      render();
+    }
+
+    async function loadUser() { try { state.user = await api('/auth/me'); storageSet('rh_user', JSON.stringify(state.user)); } catch (e) { state.user = null; } }
+
+    function saveApiBase() {
+      const base = $('apiBase').value;
+      storageSet('rh_api_base', base);
+      if (base !== state.base) { state.base = base; state.token = null; state.user = null; storageSet('rh_token', ''); storageSet('rh_user', ''); render(); showAuth(); }
+      showToast('Backend URL saved');
+    }
+
+    function hasPerm(key) { return state.user && (state.user.role === 'owner' || (state.user.permissions || {})[key]); }
+
+    function render() {
+      $('userInfo').innerHTML = '';
+      if (state.user) {
+        const span = document.createElement('span'); span.textContent = state.user.name + ' (' + state.user.role + ')';
+        const btn = document.createElement('button'); btn.className = 'secondary'; btn.textContent = 'Log out'; btn.setAttribute('onclick', 'logout()');
+        $('userInfo').appendChild(span); $('userInfo').appendChild(btn);
+      } else {
+        const btn = document.createElement('button'); btn.textContent = 'Log in'; btn.setAttribute('onclick', 'showAuth()');
+        $('userInfo').appendChild(btn);
+      }
+      renderNav(); renderTab();
+    }
+
+    function renderNav() {
+      const nav = $('nav'); nav.innerHTML = '';
+      const tabs = [['Dashboard','dashboard']];
+      if (state.user) {
+        tabs.push(['Chat','chat'], ['DMs','dms'], ['Files','files'], ['Calendar','calendar'], ['Todos','todos']);
+        if (hasPerm('can_manage_members')) tabs.push(['Team','team']);
+        tabs.push(['Settings','settings']);
+      }
+      for (const [label, key] of tabs) {
+        const b = document.createElement('button'); b.textContent = label; b.onclick = () => setTab(key);
+        if (state.tab === key) b.classList.add('active');
+        nav.appendChild(b);
       }
     }
 
-    async function listUsers() {
-      const token = localStorage.getItem('rh_token');
+    function setTab(tab) { clearInterval(state.poll); state.poll = null; state.activeChannel = null; state.activeDm = null; state.tab = tab; render(); }
+
+    function renderTab() {
+      const main = $('main'); main.innerHTML = '';
+      if (!state.user && state.tab !== 'dashboard') { state.tab = 'dashboard'; }
+      if (state.tab === 'dashboard') showDashboard(main);
+      else if (state.tab === 'chat') showChat(main);
+      else if (state.tab === 'dms') showDMs(main);
+      else if (state.tab === 'files') showFiles(main);
+      else if (state.tab === 'calendar') showCalendar(main);
+      else if (state.tab === 'todos') showTodos(main);
+      else if (state.tab === 'team') showTeam(main);
+      else if (state.tab === 'settings') showSettings(main);
+    }
+
+    async function showDashboard(container) {
+      container.innerHTML = `<h2>Dashboard</h2><div id="stats" class="grid"></div><div class="card"><h3>Next Event</h3><div id="nextEvent">Loading...</div></div><div class="card"><h3>Recent Files</h3><div id="dashFiles">Loading...</div></div>`;
+      if (!state.user) { $('nextEvent').textContent = 'Please log in to see events.'; $('dashFiles').textContent = 'Please log in to see files.'; return; }
       try {
-        const r = await fetch(`${API}/users`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const data = await api('/dashboard');
+        const stats = $('stats');
+        [['Files', data.file_count || 0], ['Messages', data.message_count || 0], ['Members', data.member_count || 0], ['Events', (data.events ? data.events.length : 0)]].forEach(([label, n]) => {
+          const d = document.createElement('div'); d.className = 'card'; d.innerHTML = `<div class="stat">${n}</div><div>${label}</div>`; stats.appendChild(d);
         });
-        const body = await r.json();
-        output.textContent = JSON.stringify(body, null, 2);
-      } catch (e) {
-        output.textContent = e.message;
-      }
+        const ev = data.next_event ? `<strong>${escapeHtml(data.next_event.title)}</strong><br>${escapeHtml(data.next_event.date)}<br>${escapeHtml(data.next_event.location || '')}` : 'No events yet.';
+        $('nextEvent').innerHTML = ev;
+        const df = $('dashFiles'); df.innerHTML = '';
+        if (!data.recent_files || !data.recent_files.length) df.textContent = 'No files uploaded.';
+        else data.recent_files.forEach(f => df.appendChild(fileCard(f, false)));
+      } catch (e) { container.innerHTML += `<p class="small">Error loading dashboard: ${escapeHtml(e.message)}</p>`; }
     }
 
-    document.getElementById('pingBtn').addEventListener('click', ping);
-    document.getElementById('loginBtn').addEventListener('click', login);
-    document.getElementById('usersBtn').addEventListener('click', listUsers);
+    function escapeHtml(s) { return (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;').replace(/"/g, '&quot;'); }
+    function formatDate(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleString(); } catch (e) { return iso; } }
+    function sizeText(n) { if (n < 1024) return n + ' B'; if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'; return (n / (1024 * 1024)).toFixed(1) + ' MB'; }
 
-    ping();
+    function fileCard(f, showActions) {
+      const el = document.createElement('div'); el.className = 'file-item';
+      const left = document.createElement('div'); left.style.flex = '1';
+      const title = document.createElement('div'); title.style.fontWeight = '600'; title.textContent = f.original_filename;
+      const meta = document.createElement('div'); meta.className = 'small'; meta.textContent = (f.uploader_name || 'Unknown') + ' - ' + formatDate(f.created_at) + ' - ' + sizeText(f.size);
+      left.appendChild(title); left.appendChild(meta);
+      if (f.kind === 'image') { const img = document.createElement('img'); img.className = 'preview'; loadImagePreview(img, f.id); left.appendChild(img); }
+      el.appendChild(left);
+      if (showActions !== false) {
+        const row = document.createElement('div'); row.className = 'row';
+        const dl = document.createElement('button'); dl.className = 'secondary'; dl.textContent = 'Download'; dl.onclick = () => downloadFile(f.id); row.appendChild(dl);
+        if (state.user && (f.uploaded_by === state.user.id || hasPerm('can_delete_any_file'))) {
+          const del = document.createElement('button'); del.className = 'danger'; del.textContent = 'Delete';
+          del.onclick = async () => { if (confirm('Delete this file?')) { try { await api('/files/' + f.id, { method: 'DELETE' }); showToast('File deleted'); if (state.tab === 'files') showFiles($('main')); else showDashboard($('main')); } catch (e) { showToast(e.message); } } };
+          row.appendChild(del);
+        }
+        el.appendChild(row);
+      }
+      return el;
+    }
+
+    async function loadImagePreview(img, id) { try { const t = await api('/files/' + id + '/download-token'); const r = await fetch(normalizeBase(state.base) + '/files/' + id + '/download?download_token=' + encodeURIComponent(t.token)); if (!r.ok) throw new Error('fetch failed'); const b = await r.blob(); img.src = URL.createObjectURL(b); } catch (e) { img.alt = 'Preview failed'; } }
+    async function downloadFile(id) { try { const t = await api('/files/' + id + '/download-token'); const url = normalizeBase(state.base) + '/files/' + id + '/download?download_token=' + encodeURIComponent(t.token); window.open(url, '_blank'); } catch (e) { showToast(e.message); } }
+
+    async function showChat(container) {
+      if (!state.user) { container.innerHTML = '<h2>Chat</h2><p class="small">Please log in to view chat.</p>'; return; }
+      container.innerHTML = `<h2>Chat</h2><div class="flex"><div class="sidebar" id="chanList">Loading channels...</div><div class="content" id="chatArea"><p class="small">Select a channel</p></div></div>`;
+      try { state.channels = await api('/channels'); if (!state.user || state.tab !== 'chat') return; renderChannelList(state.channels); } catch (e) { if ($('chanList')) $('chanList').textContent = e.message; }
+    }
+
+    function renderChannelList(channels) {
+      const box = $('chanList'); if (!box) return; box.innerHTML = '<h3>Channels</h3>';
+      if (!channels.length) { box.textContent = 'No channels available.'; return; }
+      channels.forEach(c => {
+        const b = document.createElement('button'); b.className = 'thread'; b.textContent = c.name + (c.program_label ? ' (' + c.program_label + ')' : '');
+        if (state.activeChannel && state.activeChannel.id === c.id) b.classList.add('active');
+        b.onclick = () => selectChannel(c); box.appendChild(b);
+      });
+    }
+
+    async function selectChannel(c) {
+      state.activeChannel = c;
+      if (!state.user || state.tab !== 'chat') { state.activeChannel = null; clearInterval(state.poll); state.poll = null; return; }
+      renderChannelList(state.channels);
+      const area = $('chatArea');
+      area.innerHTML = `<h3>${escapeHtml(c.name)}</h3><div id="msgList" class="list"></div><div class="row"><input id="msgInput" type="text" placeholder="Message" class="sp" /><button onclick="sendChannelMessage()">Send</button></div>`;
+      if (!hasPerm('can_chat')) { $('msgInput').disabled = true; $('msgInput').placeholder = 'You cannot post messages'; }
+      await loadChannelMessages();
+      if (!state.user || state.tab !== 'chat') { state.activeChannel = null; clearInterval(state.poll); state.poll = null; return; }
+      clearInterval(state.poll); state.poll = setInterval(loadChannelMessages, 3000);
+    }
+
+    async function loadChannelMessages() {
+      if (!state.activeChannel) return;
+      try { const list = await api('/channels/' + state.activeChannel.id + '/messages'); renderMessages(list, 'channel', state.activeChannel.id); } catch (e) { if ($('msgList')) $('msgList').textContent = e.message; }
+    }
+
+    async function sendChannelMessage() {
+      const input = $('msgInput'); const text = input.value.trim(); if (!text) return;
+      input.value = ''; try { await api('/channels/' + state.activeChannel.id + '/messages', { method: 'POST', body: JSON.stringify({ text }) }); loadChannelMessages(); } catch (e) { showToast(e.message); input.value = text; }
+    }
+
+    function renderMessages(messages, type, extra) {
+      const box = $(type === 'channel' ? 'msgList' : 'dmMsgList'); if (!box) return;
+      const old = Array.from(box.children).map(c => c.dataset.id);
+      const seen = new Set(old);
+      messages.forEach(m => {
+        if (seen.has(m.id)) return;
+        const el = document.createElement('div'); el.className = 'message'; el.dataset.id = m.id;
+        const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = (m.user_name || 'Unknown') + ' (' + (m.user_role || 'member') + ') - ' + formatDate(m.created_at);
+        const body = document.createElement('div'); body.textContent = m.text || '';
+        if (m.attachment) { const a = document.createElement('div'); a.className = 'small'; a.textContent = 'Attachment: ' + (m.attachment.original_filename || 'file'); body.appendChild(a); }
+        el.appendChild(meta); el.appendChild(body);
+        if (m.user_id === (state.user && state.user.id) || hasPerm('can_delete_any_message')) {
+          const del = document.createElement('button'); del.className = 'danger'; del.textContent = 'Delete'; del.style.fontSize = '.75rem'; del.style.padding = '.2rem .4rem';
+          del.onclick = async () => { if (confirm('Delete message?')) { try { const path = type === 'channel' ? '/channels/' + extra + '/messages/' + m.id : '/dm/' + extra + '/messages/' + m.id; await api(path, { method: 'DELETE' }); if (type === 'channel') loadChannelMessages(); else loadDmMessages(); } catch (e) { showToast(e.message); } } };
+          el.appendChild(del);
+        }
+        box.appendChild(el); box.scrollTop = box.scrollHeight;
+      });
+    }
+
+    async function showDMs(container) {
+      if (!state.user) { container.innerHTML = '<h2>Direct Messages</h2><p class="small">Please log in to view DMs.</p>'; return; }
+      container.innerHTML = `<h2>Direct Messages</h2><div class="flex"><div class="sidebar"><h3>Conversations</h3><div id="threadList">Loading...</div><h3 style="margin-top:1rem">Start new</h3><input id="dmSearch" placeholder="Search users" oninput="searchDmUsers()" /><div id="dmSearchResults"></div></div><div class="content" id="dmArea"><p class="small">Select a conversation</p></div></div>`;
+      await loadDmThreads();
+    }
+
+    async function loadDmThreads() {
+      try { const threads = await api('/dm/threads'); if (!state.user || state.tab !== 'dms') return; state.threads = threads; renderThreadList(threads); } catch (e) { if ($('threadList')) $('threadList').textContent = e.message; }
+    }
+
+    function renderThreadList(threads) {
+      const box = $('threadList'); if (!box) return; box.innerHTML = '';
+      if (!threads.length) { box.textContent = 'No conversations yet.'; return; }
+      threads.forEach(t => {
+        const b = document.createElement('button'); b.className = 'thread'; b.textContent = t.name + ' (' + t.role + ')';
+        if (state.activeDm && state.activeDm.id === t.user_id) b.classList.add('active');
+        b.onclick = () => selectDm(t); box.appendChild(b);
+      });
+    }
+
+    async function selectDm(t) {
+      const u = { id: t.user_id || t.id, name: t.name, role: t.role };
+      state.activeDm = u;
+      if (!state.user || state.tab !== 'dms') { state.activeDm = null; clearInterval(state.poll); state.poll = null; return; }
+      renderThreadList(state.threads);
+      const area = $('dmArea');
+      area.innerHTML = `<h3>${escapeHtml(u.name)}</h3><div id="dmMsgList" class="list"></div><div class="row"><input id="dmInput" type="text" placeholder="Message" class="sp" /><button onclick="sendDm()">Send</button></div>`;
+      if (!hasPerm('can_chat')) { $('dmInput').disabled = true; $('dmInput').placeholder = 'You cannot send messages'; }
+      await loadDmMessages();
+      if (!state.user || state.tab !== 'dms') { state.activeDm = null; clearInterval(state.poll); state.poll = null; return; }
+      clearInterval(state.poll); state.poll = setInterval(loadDmMessages, 3000);
+    }
+
+    async function loadDmMessages() {
+      if (!state.activeDm) return;
+      try { const data = await api('/dm/' + state.activeDm.id + '/messages'); renderMessages(data.messages, 'dm', state.activeDm.id); } catch (e) { if ($('dmMsgList')) $('dmMsgList').textContent = e.message; }
+    }
+
+    async function sendDm() {
+      const input = $('dmInput'); const text = input.value.trim(); if (!text) return;
+      input.value = ''; try { await api('/dm/' + state.activeDm.id + '/messages', { method: 'POST', body: JSON.stringify({ text }) }); loadDmMessages(); } catch (e) { showToast(e.message); input.value = text; }
+    }
+
+    async function searchDmUsers() {
+      const q = $('dmSearch').value.trim(); const box = $('dmSearchResults'); box.innerHTML = '';
+      if (q.length < 2) return;
+      try { const users = await api('/users/search?q=' + encodeURIComponent(q)); users.forEach(u => { const b = document.createElement('button'); b.className = 'thread'; b.textContent = u.name + ' (' + u.role + ')'; b.onclick = () => { state.threads = [{ user_id: u.id, name: u.name, role: u.role }].concat(state.threads.filter(x => x.user_id !== u.id)); selectDm({ user_id: u.id, name: u.name, role: u.role }); }; box.appendChild(b); }); } catch (e) {}
+    }
+
+    async function showFiles(container) {
+      if (!state.user) { container.innerHTML = '<h2>Files</h2><p class="small">Please log in to view files.</p>'; return; }
+      container.innerHTML = `<h2>Files</h2><div class="card"><h3>Upload</h3><input id="fileInput" type="file" /><button id="uploadBtn" onclick="uploadFile()">Upload</button></div><div id="fileList">Loading...</div>`;
+      $('uploadBtn').disabled = !hasPerm('can_upload_files');
+      await loadFiles();
+    }
+
+    async function loadFiles() {
+      try { const files = await api('/files'); if (!state.user || state.tab !== 'files') return; const box = $('fileList'); box.innerHTML = ''; if (!files.length) box.textContent = 'No files.'; else files.forEach(f => box.appendChild(fileCard(f, true))); } catch (e) { if ($('fileList')) $('fileList').textContent = e.message; }
+    }
+
+    async function uploadFile() {
+      const input = $('fileInput'); const file = input.files[0]; if (!file) return;
+      const form = new FormData(); form.append('file', file);
+      try { await api('/files/upload', { method: 'POST', body: form }); showToast('Uploaded'); input.value = ''; loadFiles(); } catch (e) { showToast(e.message); }
+    }
+
+    async function showCalendar(container) {
+      if (!state.user) { container.innerHTML = '<h2>Calendar</h2><p class="small">Please log in to view the calendar.</p>'; return; }
+      container.innerHTML = `<h2>Calendar</h2><div id="eventList">Loading...</div><div id="eventForm" class="card ${hasPerm('can_edit_calendar') ? '' : 'hidden'}"><h3>Add / Edit Event</h3><input id="eTitle" placeholder="Title" /><textarea id="eDesc" placeholder="Description"></textarea><input id="eDate" type="datetime-local" /><input id="eLoc" placeholder="Location" /><div class="row"><button onclick="saveEvent()">Save</button><button class="secondary" onclick="resetEventForm()">Clear</button></div></div>`;
+      await loadEvents();
+    }
+
+    let editingEvent = null;
+    async function loadEvents() {
+      try { const events = await api('/events'); if (!state.user || state.tab !== 'calendar') return; const box = $('eventList'); box.innerHTML = ''; if (!events.length) box.textContent = 'No events.'; else events.forEach(e => box.appendChild(eventCard(e))); } catch (e) { if ($('eventList')) $('eventList').textContent = e.message; }
+    }
+
+    function eventCard(e) {
+      const el = document.createElement('div'); el.className = 'event';
+      const left = document.createElement('div'); left.style.flex = '1';
+      const title = document.createElement('div'); title.style.fontWeight = '600'; title.textContent = e.title;
+      const meta = document.createElement('div'); meta.className = 'small'; meta.textContent = formatDate(e.date) + (e.location ? ' @ ' + e.location : '');
+      const desc = document.createElement('div'); desc.textContent = e.description || '';
+      left.appendChild(title); left.appendChild(meta); left.appendChild(desc); el.appendChild(left);
+      if (hasPerm('can_edit_calendar')) {
+        const row = document.createElement('div'); row.className = 'row';
+        const edit = document.createElement('button'); edit.className = 'secondary'; edit.textContent = 'Edit'; edit.onclick = () => { editingEvent = e; $('eTitle').value = e.title; $('eDesc').value = e.description || ''; $('eDate').value = toDatetimeLocal(e.date); $('eLoc').value = e.location || ''; };
+        const del = document.createElement('button'); del.className = 'danger'; del.textContent = 'Delete'; del.onclick = async () => { if (confirm('Delete event?')) { try { await api('/events/' + e.id, { method: 'DELETE' }); showToast('Deleted'); loadEvents(); resetEventForm(); } catch (er) { showToast(er.message); } } };
+        row.appendChild(edit); row.appendChild(del); el.appendChild(row);
+      }
+      return el;
+    }
+
+    function toDatetimeLocal(iso) { if (!iso) return ''; const d = new Date(iso); if (isNaN(d)) return ''; const pad = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+    function resetEventForm() { editingEvent = null; $('eTitle').value = ''; $('eDesc').value = ''; $('eDate').value = ''; $('eLoc').value = ''; }
+    async function saveEvent() {
+      const body = { title: $('eTitle').value.trim(), description: $('eDesc').value.trim(), date: new Date($('eDate').value).toISOString(), location: $('eLoc').value.trim() };
+      if (!body.title || isNaN(new Date(body.date).getTime())) { showToast('Title and date required'); return; }
+      try { if (editingEvent) { await api('/events/' + editingEvent.id, { method: 'PUT', body: JSON.stringify(body) }); } else { await api('/events', { method: 'POST', body: JSON.stringify(body) }); } resetEventForm(); loadEvents(); } catch (e) { showToast(e.message); }
+    }
+
+    async function showTodos(container) {
+      if (!state.user) { container.innerHTML = '<h2>Todos</h2><p class="small">Please log in to view todos.</p>'; return; }
+      container.innerHTML = `<h2>Todos</h2><div class="card"><h3>New Todo</h3><input id="tTitle" placeholder="Title" /><textarea id="tDesc" placeholder="Description"></textarea><input id="tDeadline" type="datetime-local" placeholder="Deadline" /><select id="tAssign"><option value="">Assign to...</option></select><button onclick="createTodo()">Create</button></div><div id="todoList">Loading...</div>`;
+      await Promise.all([loadTodos(), loadAssignOptions()]);
+    }
+
+    async function loadAssignOptions() { try { const users = await api('/users/search'); if (!state.user || state.tab !== 'todos') return; const sel = $('tAssign'); sel.innerHTML = '<option value="">Assign to...</option>'; users.forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = u.name; sel.appendChild(o); }); } catch (e) {} }
+    async function loadTodos() { try { const todos = await api('/todos'); if (!state.user || state.tab !== 'todos') return; const box = $('todoList'); box.innerHTML = ''; if (!todos.length) box.textContent = 'No todos.'; else todos.forEach(t => box.appendChild(todoCard(t))); } catch (e) { if ($('todoList')) $('todoList').textContent = e.message; } }
+
+    function todoCard(t) {
+      const el = document.createElement('div'); el.className = 'todo';
+      const left = document.createElement('div'); left.style.flex = '1';
+      const title = document.createElement('div'); title.style.fontWeight = '600'; title.textContent = (t.completed ? '[Done] ' : '') + t.title;
+      const meta = document.createElement('div'); meta.className = 'small'; meta.textContent = (t.creator_name || '') + ' - ' + (t.deadline ? formatDate(t.deadline) : 'No deadline') + (t.assigned_to ? ' [assigned]' : '');
+      const desc = document.createElement('div'); desc.textContent = t.description || '';
+      left.appendChild(title); left.appendChild(meta); left.appendChild(desc); el.appendChild(left);
+      const row = document.createElement('div'); row.className = 'row';
+      const toggle = document.createElement('button'); toggle.className = 'secondary'; toggle.textContent = t.completed ? 'Reopen' : 'Done'; toggle.onclick = async () => { try { await api('/todos/' + t.id, { method: 'PUT', body: JSON.stringify({ completed: !t.completed }) }); loadTodos(); } catch (e) { showToast(e.message); } };
+      row.appendChild(toggle);
+      if (t.created_by === (state.user && state.user.id) || hasPerm('can_manage_todos')) {
+        const del = document.createElement('button'); del.className = 'danger'; del.textContent = 'Delete'; del.onclick = async () => { if (confirm('Delete todo?')) { try { await api('/todos/' + t.id, { method: 'DELETE' }); loadTodos(); } catch (e) { showToast(e.message); } } };
+        row.appendChild(del);
+      }
+      el.appendChild(row); return el;
+    }
+
+    async function createTodo() {
+      const body = { title: $('tTitle').value.trim(), description: $('tDesc').value.trim(), deadline: $('tDeadline').value ? new Date($('tDeadline').value).toISOString() : null, assigned_to: $('tAssign').value || null };
+      if (!body.title) { showToast('Title required'); return; }
+      try { await api('/todos', { method: 'POST', body: JSON.stringify(body) }); $('tTitle').value = ''; $('tDesc').value = ''; $('tDeadline').value = ''; $('tAssign').value = ''; loadTodos(); } catch (e) { showToast(e.message); }
+    }
+
+    async function showTeam(container) {
+      if (!state.user) { container.innerHTML = '<h2>Team Management</h2><p class="small">Please log in to view team management.</p>'; return; }
+      container.innerHTML = `<h2>Team Management</h2><div class="card"><h3>Create User</h3><input id="newName" placeholder="Name" /><input id="newEmail" type="email" placeholder="Email" /><input id="newPassword" type="password" placeholder="Password" /><select id="newRole"><option value="member">Member</option><option value="mentor">Mentor</option></select><button onclick="createUser()">Create</button></div><h3>Pending</h3><div id="pendingList">Loading...</div><h3>Members</h3><div id="userList">Loading...</div>`;
+      await loadTeam();
+    }
+
+    async function loadTeam() { try { const [users, pending] = await Promise.all([api('/users'), api('/users/pending')]); if (!state.user || state.tab !== 'team') return; renderUserList(users); renderPendingList(pending); } catch (e) { if ($('userList')) $('userList').textContent = e.message; if ($('pendingList')) $('pendingList').textContent = ''; } }
+
+    function renderUserList(users) { const box = $('userList'); box.innerHTML = ''; if (!users.length) { box.textContent = 'No members.'; return; } users.forEach(u => box.appendChild(userRow(u))); }
+
+    function userRow(u) {
+      const el = document.createElement('div'); el.className = 'user-row';
+      const left = document.createElement('div'); left.style.flex = '1';
+      const name = document.createElement('div'); name.style.fontWeight = '600'; name.textContent = u.name + ' (' + u.email + ')';
+      const meta = document.createElement('div'); meta.className = 'small'; meta.textContent = 'Role: ' + u.role + ' | Status: ' + u.status;
+      left.appendChild(name); left.appendChild(meta); el.appendChild(left);
+      if (u.role !== 'owner') {
+        const row = document.createElement('div'); row.className = 'row';
+        const sel = document.createElement('select'); sel.innerHTML = '<option value="member">Member</option><option value="mentor">Mentor</option>'; sel.value = u.role;
+        sel.onchange = async () => { try { await api('/users/' + u.id + '/role', { method: 'PUT', body: JSON.stringify({ role: sel.value }) }); showToast('Role updated'); loadTeam(); } catch (e) { showToast(e.message); } };
+        row.appendChild(sel);
+        const perms = document.createElement('button'); perms.className = 'secondary'; perms.textContent = 'Permissions'; perms.onclick = () => openPermissions(u); row.appendChild(perms);
+        const del = document.createElement('button'); del.className = 'danger'; del.textContent = 'Delete'; del.onclick = async () => { if (confirm('Delete ' + u.name + '?')) { try { await api('/users/' + u.id, { method: 'DELETE' }); loadTeam(); } catch (e) { showToast(e.message); } } }; row.appendChild(del);
+        el.appendChild(row);
+      }
+      return el;
+    }
+
+    function renderPendingList(list) {
+      const box = $('pendingList'); box.innerHTML = '';
+      if (!list.length) { box.textContent = 'No pending users.'; return; }
+      list.forEach(u => {
+        const el = document.createElement('div'); el.className = 'user-row';
+        const left = document.createElement('div'); left.textContent = u.name + ' (' + u.email + ')';
+        el.appendChild(left);
+        const row = document.createElement('div'); row.className = 'row';
+        const role = document.createElement('select'); role.innerHTML = '<option value="member">Member</option><option value="mentor">Mentor</option>';
+        row.appendChild(role);
+        const approve = document.createElement('button'); approve.textContent = 'Approve'; approve.onclick = async () => { try { await api('/users/' + u.id + '/approve', { method: 'POST', body: JSON.stringify({ role: role.value }) }); loadTeam(); } catch (e) { showToast(e.message); } };
+        const reject = document.createElement('button'); reject.className = 'danger'; reject.textContent = 'Reject'; reject.onclick = async () => { try { await api('/users/' + u.id + '/reject', { method: 'POST' }); loadTeam(); } catch (e) { showToast(e.message); } };
+        row.appendChild(approve); row.appendChild(reject); el.appendChild(row); box.appendChild(el);
+      });
+    }
+
+    async function createUser() {
+      const body = { name: $('newName').value.trim(), email: $('newEmail').value.trim(), password: $('newPassword').value, role: $('newRole').value };
+      if (!body.name || !body.email || !body.password) { showToast('All fields required'); return; }
+      try { await api('/users', { method: 'POST', body: JSON.stringify(body) }); $('newName').value = ''; $('newEmail').value = ''; $('newPassword').value = ''; loadTeam(); } catch (e) { showToast(e.message); }
+    }
+
+    function openPermissions(u) {
+      const modal = document.createElement('div'); modal.className = 'modal'; modal.id = 'permModal';
+      const card = document.createElement('div'); card.className = 'card';
+      const h = document.createElement('h3'); h.textContent = 'Permissions: ' + u.name; card.appendChild(h);
+      const form = document.createElement('div');
+      PERMISSION_KEYS.forEach(k => {
+        const row = document.createElement('div'); row.className = 'permission-box';
+        const label = document.createElement('label'); label.textContent = PERMISSION_LABELS[k];
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'perm_' + k; cb.checked = !!(u.permissions || {})[k];
+        row.appendChild(label); row.appendChild(cb); form.appendChild(row);
+      });
+      card.appendChild(form);
+      const row2 = document.createElement('div'); row2.className = 'row';
+      const save = document.createElement('button'); save.textContent = 'Save'; save.onclick = async () => { const perms = {}; PERMISSION_KEYS.forEach(k => perms[k] = $('perm_' + k).checked); try { await api('/users/' + u.id + '/permissions', { method: 'PUT', body: JSON.stringify({ permissions: perms }) }); showToast('Permissions saved'); document.body.removeChild(modal); loadTeam(); } catch (e) { showToast(e.message); } };
+      const cancel = document.createElement('button'); cancel.className = 'secondary'; cancel.textContent = 'Cancel'; cancel.onclick = () => document.body.removeChild(modal);
+      row2.appendChild(save); row2.appendChild(cancel); card.appendChild(row2);
+      modal.appendChild(card); document.body.appendChild(modal);
+      modal.onclick = (e) => { if (e.target === modal) document.body.removeChild(modal); };
+    }
+
+    async function showSettings(container) {
+      if (!state.user) { container.innerHTML = '<h2>Settings</h2><p class="small">Please log in to view settings.</p>'; return; }
+      container.innerHTML = '<h2>Settings</h2><div class="card" id="settingsForm"></div>';
+      const f = $('settingsForm');
+      const mkInput = (id, label, value, type) => { const d = document.createElement('div'); const l = document.createElement('label'); l.textContent = label; const i = document.createElement('input'); i.id = id; i.value = value || ''; if (type) i.type = type; d.appendChild(l); d.appendChild(i); return d; };
+      f.appendChild(document.createElement('h3')).textContent = 'Edit Profile';
+      f.appendChild(mkInput('sName', 'Name', state.user.name));
+      f.appendChild(mkInput('sPhone', 'Phone', state.user.phone));
+      f.appendChild(mkInput('sCarrier', 'Carrier', state.user.carrier));
+      const mkCb = (id, label, checked) => { const lbl = document.createElement('label'); const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = id; cb.checked = checked; lbl.appendChild(cb); lbl.appendChild(document.createTextNode(' ' + label)); return lbl; };
+      f.appendChild(mkCb('sEmail', 'Email notifications', state.user.email_notifications));
+      f.appendChild(document.createElement('br'));
+      f.appendChild(mkCb('sSms', 'SMS notifications', state.user.sms_notifications));
+      f.appendChild(document.createElement('br'));
+      const save = document.createElement('button'); save.textContent = 'Save'; save.onclick = saveSettings; f.appendChild(save);
+    }
+
+    async function saveSettings() {
+      const body = { name: $('sName').value.trim(), phone: $('sPhone').value.trim(), carrier: $('sCarrier').value.trim(), email_notifications: $('sEmail').checked, sms_notifications: $('sSms').checked };
+      try { await api('/auth/me/settings', { method: 'PUT', body: JSON.stringify(body) }); await loadUser(); showToast('Settings saved'); render(); } catch (e) { showToast(e.message); }
+    }
+
+    init();
   </script>
 </body>
 </html>

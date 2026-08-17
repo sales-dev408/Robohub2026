@@ -5,7 +5,7 @@
  * 1. Find the bundled Python backend executable.
  * 2. Spawn it on a local port.
  * 3. Wait for the backend health endpoint to respond.
- * 4. Open the Chromium window pointing at the React frontend build.
+ * 4. Open the Chromium window pointing at the all-in-one HTML frontend.
  * 5. Kill the backend when the Electron window closes.
  */
 
@@ -77,18 +77,21 @@ function getBackendExePath() {
 }
 
 function getFrontendIndexPath() {
-  // Production / packaged: frontend build was copied to resources/build/index.html
+  // Use the all-in-one HTML frontend by default.
+  const allInOne = path.join(__dirname, "index.html");
+  if (fs.existsSync(allInOne)) {
+    return allInOne;
+  }
+  // Fallback for older React builds still present in resources/build.
   const packaged = path.join(process.resourcesPath, "build", "index.html");
   if (fs.existsSync(packaged)) {
     return packaged;
   }
-  // Development fallback: the React frontend build folder.
   const dev = path.join(__dirname, "..", "..", "frontend", "build", "index.html");
   if (fs.existsSync(dev)) {
     return dev;
   }
-  // If there is no React build, use the included sample page.
-  return path.join(__dirname, "index.html");
+  return allInOne;
 }
 
 function findBackendPidByPort(port) {
@@ -186,14 +189,18 @@ function startBackend() {
 
 function stopBackend() {
   const pids = new Set();
-  if (backendProcess && !backendProcess.killed) {
+  if (backendProcess && !backendProcess.killed && backendProcess.pid) {
     pids.add(backendProcess.pid);
   }
   if (backendRealPid) {
     pids.add(backendRealPid);
   }
-
-  if (pids.size === 0) return;
+  // The real server process may have a different PID than the one spawn() returned
+  // (PyInstaller onefile spawns a child), so also look it up by the listening port.
+  const portPid = findBackendPidByPort(BACKEND_PORT);
+  if (portPid) {
+    pids.add(portPid);
+  }
 
   logToFile(`Stopping backend processes: ${[...pids].join(", ")}`);
   for (const pid of pids) {
@@ -208,6 +215,28 @@ function stopBackend() {
       logToFile(`Stop pid ${pid} result: ${e.message}`);
     }
   }
+
+  // Fallback: force-kill any remaining backend.exe processes owned by this app.
+  try {
+    if (process.platform === "win32") {
+      execSync("taskkill /F /IM backend.exe", { timeout: 5000, windowsHide: true });
+    } else {
+      execSync("pkill -f backend", { timeout: 5000 });
+    }
+    logToFile("Fallback backend kill attempted");
+  } catch (e) {
+    // taskkill returns 128 when no matching process exists; that's fine.
+  }
+
+  try {
+    if (backendProcess) {
+      backendProcess.kill();
+    }
+  } catch (e) {
+    // Already gone.
+  }
+  backendProcess = null;
+  backendRealPid = null;
 }
 
 function createWindow() {
@@ -235,8 +264,9 @@ function createWindow() {
     logToFile(`Failed to load UI: ${err.message}`);
   });
 
-  mainWindow.webContents.on("console-message", (event, level, message, line, sourceId) => {
-    logToFile(`[console:${level}] ${message} (${sourceId}:${line})`);
+  mainWindow.webContents.on("console-message", (event) => {
+    const { level, message, lineNumber, sourceId } = event;
+    logToFile(`[console:${level}] ${message} (${sourceId}:${lineNumber})`);
   });
 
 
@@ -277,6 +307,8 @@ app.on("window-all-closed", () => {
   stopBackend();
   if (process.platform !== "darwin") {
     app.quit();
+    // Force-exit in case a lingering backend child process keeps the event loop alive.
+    setTimeout(() => app.exit(0), 800);
   }
 });
 
