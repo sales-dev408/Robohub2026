@@ -1,7 +1,5 @@
 # Build the Electron wrapper (one portable .exe and an unpacked folder).
-# Assumes:
-#   - frontend/build already exists (run npm/yarn build in frontend/)
-#   - desktop/backend/dist/backend.exe already exists (run build-python.ps1)
+# Assumes desktop/backend/dist/backend.exe already exists (run build-python.ps1 first).
 # Run from the repository root in PowerShell:
 #   .\desktop\scripts\build-electron.ps1
 

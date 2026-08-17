@@ -53,6 +53,16 @@ from multiprocessing import freeze_support
 
 freeze_support()
 
+# PyInstaller's --noconsole build leaves stdout/stderr as None on Windows,
+# which breaks logging.StreamHandler and uvicorn's default log config.
+# Redirect them to the OS null device so the packaged backend can start
+# without a console window.
+if getattr(sys, "frozen", False):
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
+
 # ---------------------------------------------------------------------------
 # Config / paths
 # ---------------------------------------------------------------------------
@@ -1390,8 +1400,12 @@ async def dashboard(user: dict = Depends(get_current_user), db=Depends(get_db)):
     async with db.execute("SELECT COUNT(*) FROM users") as cursor:
         member_count = (await cursor.fetchone())[0]
 
+    async with db.execute("SELECT COUNT(*) FROM events") as cursor:
+        event_count = (await cursor.fetchone())[0]
+
     return {
         "next_event": next_event,
+        "event_count": event_count,
         "file_count": len(recent_files),
         "message_count": msg_count,
         "member_count": member_count,
