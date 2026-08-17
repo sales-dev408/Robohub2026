@@ -152,6 +152,66 @@ CARRIER_GATEWAYS = {
     "virgin": "vmobl.com",
 }
 
+# Granular permission model (stored overrides merged with role defaults)
+PERMISSION_KEYS = {
+    "can_chat",
+    "can_upload_files",
+    "can_view_members_only",
+    "can_edit_calendar",
+    "can_manage_todos",
+    "can_delete_any_message",
+    "can_delete_any_file",
+    "can_manage_members",
+}
+
+DEFAULT_ROLE_PERMISSIONS = {
+    "owner": {k: True for k in PERMISSION_KEYS},
+    "mentor": {
+        "can_chat": True,
+        "can_upload_files": True,
+        "can_view_members_only": False,
+        "can_edit_calendar": True,
+        "can_manage_todos": True,
+        "can_delete_any_message": True,
+        "can_delete_any_file": True,
+        "can_manage_members": False,
+    },
+    "member": {
+        "can_chat": True,
+        "can_upload_files": True,
+        "can_view_members_only": True,
+        "can_edit_calendar": False,
+        "can_manage_todos": False,
+        "can_delete_any_message": False,
+        "can_delete_any_file": False,
+        "can_manage_members": False,
+    },
+}
+
+
+def get_permissions(user: dict) -> dict:
+    """Return effective permissions, merging stored overrides with role defaults."""
+    role = user.get("role", "member")
+    defaults = DEFAULT_ROLE_PERMISSIONS.get(role, DEFAULT_ROLE_PERMISSIONS["member"]).copy()
+    if role == "owner":
+        return defaults
+    stored = user.get("permissions")
+    if isinstance(stored, str):
+        try:
+            stored = json.loads(stored)
+        except Exception:
+            stored = {}
+    if isinstance(stored, dict):
+        for key, value in stored.items():
+            if key in defaults and isinstance(value, bool):
+                defaults[key] = value
+    return defaults
+
+
+def has_permission(user: dict, key: str) -> bool:
+    return get_permissions(user).get(key, False)
+
+
 # Monthly cap on outbound notification emails (digest + email-to-SMS) to protect quota
 EMAIL_MONTHLY_LIMIT = int(os.environ.get('EMAIL_MONTHLY_LIMIT', '2500'))
 
@@ -251,10 +311,15 @@ CHANNELS.append({
 CHANNEL_IDS = {c["id"] for c in CHANNELS}
 
 
-def channel_visible_to(channel_id: str, role: str) -> bool:
+def channel_visible_to(channel_id: str, user: dict) -> bool:
+    if channel_id not in CHANNEL_IDS:
+        return False
     if channel_id == "members-only":
-        return role in ("member", "owner")  # mentors excluded
-    return channel_id in CHANNEL_IDS
+        role = user.get("role", "member")
+        if role == "owner":
+            return True
+        return has_permission(user, "can_view_members_only")
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +357,7 @@ def serialize_user(user: dict) -> dict:
         "email_notifications": user.get("email_notifications", True),
         "sms_notifications": user.get("sms_notifications", False),
         "status": user.get("status", "approved"),
+        "permissions": get_permissions(user),
         "created_at": user.get("created_at"),
     }
 
@@ -323,6 +389,14 @@ async def get_current_user(request: Request) -> dict:
 def require_roles(*roles):
     async def checker(user: dict = Depends(get_current_user)) -> dict:
         if user.get("role") not in roles:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return user
+    return checker
+
+
+def require_permission(key: str):
+    async def checker(user: dict = Depends(get_current_user)) -> dict:
+        if not has_permission(user, key):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return user
     return checker
@@ -478,7 +552,7 @@ async def _file_visible_to_user(file_id: str, user: dict) -> bool:
     if rec.get("uploaded_by") == uid:
         return True
 
-    visible_channels = [c["id"] for c in CHANNELS if channel_visible_to(c["id"], user.get("role"))]
+    visible_channels = [c["id"] for c in CHANNELS if channel_visible_to(c["id"], user)]
     if visible_channels:
         channel_match = await db.messages.find_one(
             {"channel_id": {"$in": visible_channels}, "attachment.file_id": file_id},
@@ -620,7 +694,7 @@ async def notify_new_message(channel: dict, msg: dict):
         uid = str(u["_id"])
         if uid == sender_id:
             continue
-        if not channel_visible_to(channel_id, u.get("role")):
+        if not channel_visible_to(channel_id, u):
             continue
         # web push (always on if subscribed)
         await _push_to_user(uid, payload)
@@ -667,7 +741,7 @@ async def build_and_send_weekly_digest():
         rows = []
         for cid, cnt in msg_counts.items():
             ch = channel_name.get(cid)
-            if not ch or not channel_visible_to(cid, role):
+            if not ch or not channel_visible_to(cid, u):
                 continue
             label = ch["name"] if ch["program"] == "private" else f"{ch['program_label']} · {ch['name']}"
             rows.append(f"<li><b>{cnt}</b> new in {label}</li>")
@@ -777,6 +851,10 @@ class ApproveRequest(BaseModel):
     role: str = "member"
 
 
+class PermissionsUpdate(BaseModel):
+    permissions: dict
+
+
 class TodoCreate(BaseModel):
     title: str
     description: str = ""
@@ -872,8 +950,7 @@ async def update_settings(req: SettingsUpdate, user: dict = Depends(get_current_
 # ---------------------------------------------------------------------------
 @api_router.get("/channels")
 async def list_channels(user: dict = Depends(get_current_user)):
-    role = user.get("role")
-    visible = [c for c in CHANNELS if channel_visible_to(c["id"], role)]
+    visible = [c for c in CHANNELS if channel_visible_to(c["id"], user)]
     return visible
 
 
@@ -881,7 +958,7 @@ async def list_channels(user: dict = Depends(get_current_user)):
 async def get_messages(channel_id: str, user: dict = Depends(get_current_user)):
     if channel_id not in CHANNEL_IDS:
         raise HTTPException(status_code=404, detail="Channel not found")
-    if not channel_visible_to(channel_id, user.get("role")):
+    if not channel_visible_to(channel_id, user):
         raise HTTPException(status_code=403, detail="You don't have access to this channel")
     msgs = await db.messages.find({"channel_id": channel_id}, {"_id": 0}).sort("created_at", 1).to_list(1000)
     for m in msgs:
@@ -894,8 +971,10 @@ async def get_messages(channel_id: str, user: dict = Depends(get_current_user)):
 async def post_message(channel_id: str, req: MessageCreate, user: dict = Depends(get_current_user)):
     if channel_id not in CHANNEL_IDS:
         raise HTTPException(status_code=404, detail="Channel not found")
-    if not channel_visible_to(channel_id, user.get("role")):
+    if not channel_visible_to(channel_id, user):
         raise HTTPException(status_code=403, detail="You don't have access to this channel")
+    if not has_permission(user, "can_chat"):
+        raise HTTPException(status_code=403, detail="You don't have permission to send messages")
     blocked = _contains_blocked_content(req.text)
     if blocked:
         raise HTTPException(status_code=400, detail=f"Message contains inappropriate content and cannot be sent.")
@@ -933,7 +1012,7 @@ async def delete_message(channel_id: str, message_id: str, user: dict = Depends(
     msg = await db.messages.find_one({"id": message_id, "channel_id": channel_id})
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
-    if msg["user_id"] != str(user["_id"]) and user.get("role") not in ("owner", "mentor"):
+    if msg["user_id"] != str(user["_id"]) and not has_permission(user, "can_delete_any_message"):
         raise HTTPException(status_code=403, detail="Not allowed to delete this message")
     await db.messages.delete_one({"id": message_id})
     return {"ok": True}
@@ -944,7 +1023,7 @@ async def delete_dm_message(other_id: str, message_id: str, user: dict = Depends
     msg = await db.dm_messages.find_one({"id": message_id})
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
-    if msg["sender_id"] != str(user["_id"]) and user.get("role") not in ("owner", "mentor"):
+    if msg["sender_id"] != str(user["_id"]) and not has_permission(user, "can_delete_any_message"):
         raise HTTPException(status_code=403, detail="Not allowed to delete this message")
     await db.dm_messages.delete_one({"id": message_id})
     return {"ok": True}
@@ -1120,6 +1199,8 @@ async def get_dm(other_id: str, user: dict = Depends(get_current_user)):
 
 @api_router.post("/dm/{other_id}/messages")
 async def post_dm(other_id: str, req: MessageCreate, user: dict = Depends(get_current_user)):
+    if not has_permission(user, "can_chat"):
+        raise HTTPException(status_code=403, detail="You don't have permission to send messages")
     blocked = _contains_blocked_content(req.text)
     if blocked:
         raise HTTPException(status_code=400, detail=f"Message contains inappropriate content and cannot be sent.")
@@ -1165,7 +1246,7 @@ def classify_file(filename: str, content_type: str) -> str:
 
 
 @api_router.post("/files/upload")
-async def upload_file(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+async def upload_file(file: UploadFile = File(...), user: dict = Depends(require_permission("can_upload_files"))):
     blocked = _contains_blocked_content(file.filename)
     if blocked:
         raise HTTPException(status_code=400, detail="File name contains inappropriate content.")
@@ -1249,7 +1330,7 @@ async def delete_file(file_id: str, user: dict = Depends(get_current_user)):
     rec = await db.files.find_one({"id": file_id, "is_deleted": False})
     if not rec:
         raise HTTPException(status_code=404, detail="File not found")
-    if rec["uploaded_by"] != str(user["_id"]) and user.get("role") not in ("owner", "mentor"):
+    if rec["uploaded_by"] != str(user["_id"]) and not has_permission(user, "can_delete_any_file"):
         raise HTTPException(status_code=403, detail="Not allowed to delete this file")
     try:
         await asyncio.to_thread(delete_object, rec["storage_path"])
@@ -1270,7 +1351,7 @@ async def list_events(user: dict = Depends(get_current_user)):
 
 
 @api_router.post("/events")
-async def create_event(req: EventCreate, user: dict = Depends(require_roles("owner", "mentor"))):
+async def create_event(req: EventCreate, user: dict = Depends(require_permission("can_edit_calendar"))):
     ev = {
         "id": str(uuid.uuid4()),
         "title": req.title,
@@ -1287,7 +1368,7 @@ async def create_event(req: EventCreate, user: dict = Depends(require_roles("own
 
 
 @api_router.put("/events/{event_id}")
-async def update_event(event_id: str, req: EventCreate, user: dict = Depends(require_roles("owner", "mentor"))):
+async def update_event(event_id: str, req: EventCreate, user: dict = Depends(require_permission("can_edit_calendar"))):
     existing = await db.events.find_one({"id": event_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1299,7 +1380,7 @@ async def update_event(event_id: str, req: EventCreate, user: dict = Depends(req
 
 
 @api_router.delete("/events/{event_id}")
-async def delete_event(event_id: str, user: dict = Depends(require_roles("owner", "mentor"))):
+async def delete_event(event_id: str, user: dict = Depends(require_permission("can_edit_calendar"))):
     res = await db.events.delete_one({"id": event_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1324,7 +1405,7 @@ async def list_todos(user: dict = Depends(get_current_user)):
 
 
 @api_router.post("/todos")
-async def create_todo(req: TodoCreate, user: dict = Depends(get_current_user)):
+async def create_todo(req: TodoCreate, user: dict = Depends(require_permission("can_manage_todos"))):
     blocked = _contains_blocked_content(req.title)
     if blocked:
         raise HTTPException(status_code=400, detail="Title contains inappropriate content.")
@@ -1354,7 +1435,7 @@ async def update_todo(todo_id: str, req: TodoUpdate, user: dict = Depends(get_cu
     if not existing:
         raise HTTPException(status_code=404, detail="Todo not found")
     uid = str(user["_id"])
-    if existing["created_by"] != uid and user.get("role") != "owner":
+    if existing["created_by"] != uid and not has_permission(user, "can_manage_todos"):
         raise HTTPException(status_code=403, detail="Not allowed to edit this todo")
     updates = {}
     if req.title is not None:
@@ -1385,7 +1466,7 @@ async def delete_todo(todo_id: str, user: dict = Depends(get_current_user)):
     if not existing:
         raise HTTPException(status_code=404, detail="Todo not found")
     uid = str(user["_id"])
-    if existing["created_by"] != uid and user.get("role") != "owner":
+    if existing["created_by"] != uid and not has_permission(user, "can_manage_todos"):
         raise HTTPException(status_code=403, detail="Not allowed to delete this todo")
     await db.todos.delete_one({"id": todo_id})
     return {"ok": True}
@@ -1445,7 +1526,8 @@ async def approve_user(user_id: str, req: ApproveRequest, user: dict = Depends(r
         raise HTTPException(status_code=404, detail="User not found")
     if target.get("status") != "pending":
         raise HTTPException(status_code=400, detail="This member has already been reviewed")
-    await db.users.update_one({"_id": oid}, {"$set": {"status": "approved", "role": req.role}})
+    perms = DEFAULT_ROLE_PERMISSIONS.get(req.role, DEFAULT_ROLE_PERMISSIONS["member"]).copy()
+    await db.users.update_one({"_id": oid}, {"$set": {"status": "approved", "role": req.role, "permissions": perms}})
     updated = await db.users.find_one({"_id": oid})
     asyncio.create_task(dispatch_email(
         updated["email"],
@@ -1468,6 +1550,35 @@ async def reject_user(user_id: str, user: dict = Depends(require_roles("owner"))
         raise HTTPException(status_code=400, detail="This member has already been reviewed")
     await db.users.delete_one({"_id": oid})
     return {"ok": True}
+
+
+@api_router.get("/users/{user_id}/permissions")
+async def get_user_permissions(user_id: str, user: dict = Depends(require_roles("owner"))):
+    try:
+        oid = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user id")
+    target = await db.users.find_one({"_id": oid})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"permissions": get_permissions(target)}
+
+
+@api_router.put("/users/{user_id}/permissions")
+async def update_user_permissions(user_id: str, req: PermissionsUpdate, user: dict = Depends(require_roles("owner"))):
+    try:
+        oid = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user id")
+    target = await db.users.find_one({"_id": oid})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.get("role") == "owner":
+        raise HTTPException(status_code=400, detail="Owner permissions cannot be edited")
+    cleaned = {k: bool(v) for k, v in (req.permissions or {}).items() if k in PERMISSION_KEYS}
+    await db.users.update_one({"_id": oid}, {"$set": {"permissions": cleaned}})
+    updated = await db.users.find_one({"_id": oid})
+    return serialize_user(updated)
 
 
 @api_router.put("/users/{user_id}/role")
@@ -1501,6 +1612,7 @@ async def create_user(req: CreateUserRequest, user: dict = Depends(require_roles
         "password_hash": hash_password(req.password),
         "name": req.name.strip() or email.split("@")[0],
         "role": req.role,
+        "permissions": DEFAULT_ROLE_PERMISSIONS.get(req.role, DEFAULT_ROLE_PERMISSIONS["member"]).copy(),
         "phone": "",
         "carrier": "",
         "email_notifications": True,
@@ -1561,8 +1673,7 @@ async def dashboard(user: dict = Depends(get_current_user)):
             recent_files.append(f)
         if len(recent_files) == 4:
             break
-    role = user.get("role")
-    visible_ids = [c["id"] for c in CHANNELS if channel_visible_to(c["id"], role)]
+    visible_ids = [c["id"] for c in CHANNELS if channel_visible_to(c["id"], user)]
     msg_count = await db.messages.count_documents({"channel_id": {"$in": visible_ids}})
     member_count = await db.users.count_documents({})
     return {

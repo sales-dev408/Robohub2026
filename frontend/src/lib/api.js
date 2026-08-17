@@ -1,8 +1,11 @@
 import axios from "axios";
 
-// The desktop build does not set REACT_APP_BACKEND_URL; it falls back to
-// the local Python backend that Electron starts automatically.
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:54114";
+// In Electron the preload exposes the local backend port; otherwise use the
+// backend URL baked in at build time (Render/production) and fall back local.
+const electronPort = typeof window !== "undefined" && window.electronAPI?.backendPort;
+const BACKEND_URL = electronPort
+  ? `http://127.0.0.1:${electronPort}`
+  : process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:54114";
 const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API });
