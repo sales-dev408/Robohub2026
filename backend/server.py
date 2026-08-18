@@ -252,16 +252,15 @@ _BLOCKED_IMAGE_EXTENSIONS = {".exe", ".bat", ".cmd", ".scr", ".com"}
 
 
 def _contains_blocked_content(text: str) -> str | None:
+    """Check for blocked words. Matches whole words only so common words like
+    'assemble', 'hello' or 'scent' are not falsely blocked."""
     if not text:
         return None
     lower = text.lower()
-    words = re.split(r'[\s\W]+', lower)
+    words = re.split(r"[\s\W_]+", lower)
     for w in words:
-        if w in _BLOCKED_WORDS:
+        if w and w in _BLOCKED_WORDS:
             return w
-        for bw in _BLOCKED_WORDS:
-            if bw in w:
-                return bw
     return None
 
 
