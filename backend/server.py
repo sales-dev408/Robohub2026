@@ -259,9 +259,6 @@ def _contains_blocked_content(text: str) -> str | None:
     for w in words:
         if w in _BLOCKED_WORDS:
             return w
-        for bw in _BLOCKED_WORDS:
-            if bw in w:
-                return bw
     return None
 
 
