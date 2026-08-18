@@ -239,7 +239,7 @@ def decrypt_field(ciphertext: str) -> str:
 # Content filtering — block profanity, slurs, sexual innuendos, 18+ content
 # ---------------------------------------------------------------------------
 _BLOCKED_WORDS = {
-    "fuck", "shit", "ass", "bitch", "damn", "hell", "crap", "dick", "cock",
+    "fuck", "shit", "ass", "bitch", "damn", "crap", "dick", "cock",
     "pussy", "whore", "slut", "bastard", "motherfucker", "fucker", "asshole",
     "bullshit", "dumbass", "jackass", "piss", "cunt", "twat", "wanker",
     "nigger", "nigga", "faggot", "retard", "retarded",
