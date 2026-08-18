@@ -1311,7 +1311,7 @@ async def download_file(file_id: str, request: Request, download_token: Optional
     except Exception as e:
         logger.error(f"download failed: {e}")
         raise HTTPException(status_code=500, detail="Download failed")
-    headers = {"Content-Disposition": f'inline; filename="{rec["original_filename"]}"'}
+    headers = {"Content-Disposition": f'attachment; filename="{rec["original_filename"]}"'}
     return Response(content=content, media_type=rec.get("content_type", ctype), headers=headers)
 
 
