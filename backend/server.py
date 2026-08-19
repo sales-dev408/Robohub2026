@@ -1311,7 +1311,7 @@ async def download_file(file_id: str, request: Request, download_token: Optional
     except Exception as e:
         logger.error(f"download failed: {e}")
         raise HTTPException(status_code=500, detail="Download failed")
-    headers = {"Content-Disposition": f'inline; filename="{rec["original_filename"]}"'}
+    headers = {"Content-Disposition": f'attachment; filename="{rec["original_filename"]}"'}
     return Response(content=content, media_type=rec.get("content_type", ctype), headers=headers)
 
 
@@ -1777,8 +1777,9 @@ cors_env = os.environ.get("CORS_ORIGINS", "").strip()
 if cors_env:
     allowed_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
 else:
-    # default: allow file:// origin null and the sabercats domain
-    allowed_origins = ["null", "https://sabercats4146.com"]
+    # default: allow every origin so the single-file HTML (file://), the Vercel
+    # site, and the Cloudflare Worker front door can all reach the backend.
+    allowed_origins = ["*"]
 
 # Allow credentials? For file:// we keep this false (do not use cookies).
 allow_creds = os.environ.get("CORS_ALLOW_CREDENTIALS", "false").lower() in ("1", "true", "yes")
